@@ -400,17 +400,7 @@
                 <h3>Summary</h3>
                 <p id="resultSummary"></p>
 
-                <h3>Key Topics</h3>
-                <ul id="resultTopics"></ul>
-
-                <h3>Main Insights</h3>
-                <ol id="resultInsights"></ol>
-
-                <h3>Notable Quotes</h3>
-                <div id="resultQuotes"></div>
-
-                <h3>Action Items</h3>
-                <ul id="resultActions"></ul>
+                <div id="resultTopics"></div>
             </div>
         </div>
 
@@ -587,17 +577,18 @@
             document.getElementById('resultTitle').textContent = result.title;
             document.getElementById('resultSummary').textContent = result.summary;
 
-            const topicsList = document.getElementById('resultTopics');
-            topicsList.innerHTML = result.key_topics.map(t => `<li>${t}</li>`).join('');
-
-            const insightsList = document.getElementById('resultInsights');
-            insightsList.innerHTML = result.main_insights.map(i => `<li>${i}</li>`).join('');
-
-            const quotesDiv = document.getElementById('resultQuotes');
-            quotesDiv.innerHTML = result.notable_quotes.map(q => `<blockquote>"${q}"</blockquote>`).join('');
-
-            const actionsList = document.getElementById('resultActions');
-            actionsList.innerHTML = result.action_items.map(a => `<li>${a}</li>`).join('');
+            const topicsDiv = document.getElementById('resultTopics');
+            if (result.topics && result.topics.length > 0) {
+                topicsDiv.innerHTML = result.topics.map(topic => `
+                    <h3>${topic.name}</h3>
+                    <ul>
+                        ${topic.key_points.map(point => `<li>${point}</li>`).join('')}
+                    </ul>
+                    ${topic.quote ? `<blockquote>"${topic.quote}"</blockquote>` : ''}
+                `).join('');
+            } else {
+                topicsDiv.innerHTML = '<p>No topics extracted.</p>';
+            }
         }
 
         function showError(message) {

@@ -148,22 +148,27 @@ def analyze_transcript(transcript: str) -> dict:
     """Extract insights using Claude."""
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-    prompt = """You are an expert at analyzing podcast transcripts and extracting valuable insights.
+    prompt = """You are an expert at analyzing podcast transcripts and extracting the essential information.
 
 Analyze the following podcast transcript and extract:
 1. A concise title for this episode (if not obvious, create a descriptive one)
 2. An executive summary (2-3 sentences capturing the essence)
-3. Key topics discussed (3-7 bullet points)
-4. Main insights and takeaways (5-10 numbered points with brief context)
-5. Notable quotes (2-5 memorable or impactful quotes from the episode)
+3. Key topics discussed - for each topic, provide:
+   - The topic name
+   - The main information and key points about that topic
+   - Any notable quotes related to that topic (if relevant)
 
 Format your response as JSON with these exact keys:
 {
     "title": "Episode title",
     "summary": "2-3 sentence summary",
-    "key_topics": ["Topic 1", "Topic 2", ...],
-    "main_insights": ["Insight 1", "Insight 2", ...],
-    "notable_quotes": ["Quote 1", "Quote 2", ...]
+    "topics": [
+        {
+            "name": "Topic name",
+            "key_points": ["Main point 1", "Main point 2", ...],
+            "quote": "Notable quote if relevant, or null"
+        }
+    ]
 }
 
 Here is the transcript:
@@ -191,9 +196,7 @@ Here is the transcript:
     return {
         "title": "Podcast Episode",
         "summary": response_text[:500],
-        "key_topics": [],
-        "main_insights": [],
-        "notable_quotes": []
+        "topics": []
     }
 
 
