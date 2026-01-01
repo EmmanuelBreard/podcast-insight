@@ -3,14 +3,14 @@
 import os
 import tempfile
 import asyncio
+import uuid
+import shutil
 from pathlib import Path
-from dataclasses import dataclass
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
-import httpx
 import anthropic
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -22,17 +22,7 @@ app = FastAPI(title="Podcast Insight")
 
 # Models
 class AnalyzeRequest(BaseModel):
-    spotify_url: str
-
-
-class InsightResponse(BaseModel):
-    title: str
-    summary: str
-    key_topics: list[str]
-    main_insights: list[str]
-    notable_quotes: list[str]
-    action_items: list[str]
-    transcript_preview: str
+    url: str
 
 
 class StatusResponse(BaseModel):
@@ -55,15 +45,23 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY required")
 
 
-def validate_spotify_url(url: str) -> bool:
-    """Validate Spotify episode URL."""
+def validate_url(url: str) -> bool:
+    """Validate YouTube or other supported URLs."""
     import re
-    pattern = r"https?://open\.spotify\.com/episode/[a-zA-Z0-9]+"
-    return bool(re.match(pattern, url))
+    # YouTube patterns
+    youtube_patterns = [
+        r"https?://(www\.)?youtube\.com/watch\?v=",
+        r"https?://youtu\.be/",
+        r"https?://(www\.)?youtube\.com/live/",
+    ]
+    for pattern in youtube_patterns:
+        if re.match(pattern, url):
+            return True
+    return False
 
 
 async def download_audio(url: str, output_dir: Path) -> Path:
-    """Download audio from Spotify or YouTube using yt-dlp."""
+    """Download audio from YouTube using yt-dlp."""
     output_template = str(output_dir / "%(title)s.%(ext)s")
 
     result = await asyncio.create_subprocess_exec(
@@ -143,7 +141,6 @@ Here is the transcript:
 
     # Extract JSON from response
     try:
-        # Try to find JSON in the response
         start = response_text.find("{")
         end = response_text.rfind("}") + 1
         if start != -1 and end > start:
@@ -162,12 +159,12 @@ Here is the transcript:
     }
 
 
-async def process_podcast(job_id: str, url: str):
+async def process_podcast_url(job_id: str, url: str):
     """Process a podcast URL asynchronously."""
     try:
         jobs[job_id]["status"] = "downloading"
         jobs[job_id]["progress"] = 10
-        jobs[job_id]["message"] = "Downloading audio from Spotify..."
+        jobs[job_id]["message"] = "Downloading audio..."
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -199,16 +196,48 @@ async def process_podcast(job_id: str, url: str):
         jobs[job_id]["progress"] = 0
 
 
+async def process_uploaded_file(job_id: str, file_path: Path):
+    """Process an uploaded audio file."""
+    try:
+        jobs[job_id]["status"] = "transcribing"
+        jobs[job_id]["progress"] = 30
+        jobs[job_id]["message"] = "Transcribing audio..."
+
+        transcript = await transcribe_with_openai(file_path)
+
+        jobs[job_id]["status"] = "analyzing"
+        jobs[job_id]["progress"] = 70
+        jobs[job_id]["message"] = "Extracting insights with Claude..."
+
+        insights = analyze_transcript(transcript)
+
+        jobs[job_id]["status"] = "complete"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["message"] = "Done!"
+        jobs[job_id]["result"] = {
+            **insights,
+            "transcript_preview": transcript[:1000] + "..." if len(transcript) > 1000 else transcript
+        }
+
+    except Exception as e:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["message"] = str(e)
+        jobs[job_id]["progress"] = 0
+    finally:
+        # Clean up uploaded file
+        if file_path.exists():
+            file_path.unlink()
+
+
 @app.post("/api/analyze")
 async def analyze_podcast(request: AnalyzeRequest, background_tasks: BackgroundTasks):
-    """Start podcast analysis job."""
-    if not validate_spotify_url(request.spotify_url):
+    """Start podcast analysis job from URL."""
+    if not validate_url(request.url):
         raise HTTPException(
             status_code=400,
-            detail="Invalid Spotify episode URL. Use format: https://open.spotify.com/episode/..."
+            detail="Invalid URL. Please use a YouTube link (youtube.com or youtu.be)"
         )
 
-    import uuid
     job_id = str(uuid.uuid4())
 
     jobs[job_id] = {
@@ -218,7 +247,48 @@ async def analyze_podcast(request: AnalyzeRequest, background_tasks: BackgroundT
         "result": None
     }
 
-    background_tasks.add_task(process_podcast, job_id, request.spotify_url)
+    background_tasks.add_task(process_podcast_url, job_id, request.url)
+
+    return {"job_id": job_id}
+
+
+@app.post("/api/upload")
+async def upload_audio(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """Upload and analyze an audio file."""
+    # Validate file type
+    allowed_types = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/m4a", "audio/x-m4a", "audio/mp4"]
+    if file.content_type not in allowed_types and not file.filename.endswith(('.mp3', '.wav', '.m4a')):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload MP3, WAV, or M4A files."
+        )
+
+    # Check file size (max 25MB for Whisper API)
+    contents = await file.read()
+    if len(contents) > 25 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="File too large. Maximum size is 25MB."
+        )
+
+    job_id = str(uuid.uuid4())
+
+    # Save file temporarily
+    temp_dir = Path(tempfile.gettempdir()) / "podcast_insight"
+    temp_dir.mkdir(exist_ok=True)
+    file_path = temp_dir / f"{job_id}_{file.filename}"
+
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    jobs[job_id] = {
+        "status": "queued",
+        "progress": 0,
+        "message": "Processing upload...",
+        "result": None
+    }
+
+    background_tasks.add_task(process_uploaded_file, job_id, file_path)
 
     return {"job_id": job_id}
 

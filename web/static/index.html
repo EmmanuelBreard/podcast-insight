@@ -51,6 +51,42 @@
             margin-bottom: 2rem;
         }
 
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            border-color: #555;
+            color: #ccc;
+        }
+
+        .tab.active {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .input-group {
             display: flex;
             gap: 1rem;
@@ -95,6 +131,74 @@
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        .upload-area {
+            border: 2px dashed #333;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #555;
+            background: #1a1a1a;
+        }
+
+        .upload-area.dragover {
+            border-color: #fff;
+            background: #1a1a1a;
+        }
+
+        .upload-area p {
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-area .formats {
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .selected-file {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 8px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .selected-file.show {
+            display: flex;
+        }
+
+        .selected-file .filename {
+            color: #ccc;
+        }
+
+        .selected-file .remove {
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .selected-file .remove:hover {
+            color: #ff6b6b;
+        }
+
+        .upload-btn {
+            margin-top: 1rem;
+            width: 100%;
         }
 
         .progress-section {
@@ -236,6 +340,10 @@
             .container {
                 padding: 1rem;
             }
+
+            .tabs {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -243,18 +351,38 @@
     <div class="container">
         <header>
             <h1>Podcast Insight</h1>
-            <p class="subtitle">Extract key insights from any Spotify podcast episode</p>
+            <p class="subtitle">Extract key insights from any podcast or video</p>
         </header>
 
         <div class="input-section">
-            <div class="input-group">
-                <input
-                    type="text"
-                    id="spotifyUrl"
-                    placeholder="https://open.spotify.com/episode/..."
-                    autocomplete="off"
-                >
-                <button id="analyzeBtn" onclick="analyze()">Analyze</button>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('url')">YouTube URL</button>
+                <button class="tab" onclick="switchTab('upload')">Upload Audio</button>
+            </div>
+
+            <div id="urlTab" class="tab-content active">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="videoUrl"
+                        placeholder="https://youtube.com/watch?v=..."
+                        autocomplete="off"
+                    >
+                    <button id="analyzeBtn" onclick="analyzeUrl()">Analyze</button>
+                </div>
+            </div>
+
+            <div id="uploadTab" class="tab-content">
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <p>Drop audio file here or click to browse</p>
+                    <span class="formats">MP3, WAV, M4A (max 25MB)</span>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept=".mp3,.wav,.m4a,audio/*">
+                <div class="selected-file" id="selectedFile">
+                    <span class="filename" id="fileName"></span>
+                    <button class="remove" onclick="clearFile(event)">Remove</button>
+                </div>
+                <button class="upload-btn" id="uploadBtn" onclick="uploadFile()" disabled>Analyze File</button>
             </div>
         </div>
 
@@ -287,32 +415,88 @@
         </div>
 
         <footer>
-            Built by <a href="https://github.com/emmanuel" target="_blank">Emmanuel</a> ·
-            <a href="https://github.com/emmanuel/podcast-insight" target="_blank">GitHub</a>
+            Built by <a href="https://github.com/EmmanuelBreard" target="_blank">Emmanuel</a> ·
+            <a href="https://github.com/EmmanuelBreard/podcast-insight" target="_blank">GitHub</a>
         </footer>
     </div>
 
     <script>
         let pollInterval = null;
+        let selectedFile = null;
 
-        async function analyze() {
-            const url = document.getElementById('spotifyUrl').value.trim();
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (tab === 'url') {
+                document.querySelector('.tab:first-child').classList.add('active');
+                document.getElementById('urlTab').classList.add('active');
+            } else {
+                document.querySelector('.tab:last-child').classList.add('active');
+                document.getElementById('uploadTab').classList.add('active');
+            }
+        }
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (file.size > 25 * 1024 * 1024) {
+                alert('File too large. Maximum size is 25MB.');
+                return;
+            }
+            selectedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('selectedFile').classList.add('show');
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        function clearFile(e) {
+            e.stopPropagation();
+            selectedFile = null;
+            fileInput.value = '';
+            document.getElementById('selectedFile').classList.remove('show');
+            document.getElementById('uploadBtn').disabled = true;
+        }
+
+        async function analyzeUrl() {
+            const url = document.getElementById('videoUrl').value.trim();
             if (!url) return;
 
             const btn = document.getElementById('analyzeBtn');
             btn.disabled = true;
 
-            // Reset and show progress
-            document.getElementById('progressSection').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-            document.getElementById('progressFill').style.width = '0%';
-            document.getElementById('progressText').textContent = 'Starting...';
+            resetProgress();
 
             try {
                 const response = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ spotify_url: url })
+                    body: JSON.stringify({ url: url })
                 });
 
                 if (!response.ok) {
@@ -321,7 +505,7 @@
                 }
 
                 const { job_id } = await response.json();
-                pollStatus(job_id);
+                pollStatus(job_id, btn);
 
             } catch (error) {
                 showError(error.message);
@@ -329,7 +513,46 @@
             }
         }
 
-        function pollStatus(jobId) {
+        async function uploadFile() {
+            if (!selectedFile) return;
+
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+
+            resetProgress();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to upload file');
+                }
+
+                const { job_id } = await response.json();
+                pollStatus(job_id, btn);
+
+            } catch (error) {
+                showError(error.message);
+                btn.disabled = false;
+            }
+        }
+
+        function resetProgress() {
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('progressSection').classList.remove('error');
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = 'Starting...';
+        }
+
+        function pollStatus(jobId, btn) {
             if (pollInterval) clearInterval(pollInterval);
 
             pollInterval = setInterval(async () => {
@@ -343,16 +566,16 @@
                     if (data.status === 'complete') {
                         clearInterval(pollInterval);
                         showResults(data.result);
-                        document.getElementById('analyzeBtn').disabled = false;
+                        btn.disabled = false;
                     } else if (data.status === 'error') {
                         clearInterval(pollInterval);
                         showError(data.message);
-                        document.getElementById('analyzeBtn').disabled = false;
+                        btn.disabled = false;
                     }
                 } catch (error) {
                     clearInterval(pollInterval);
                     showError('Connection lost');
-                    document.getElementById('analyzeBtn').disabled = false;
+                    btn.disabled = false;
                 }
             }, 1000);
         }
@@ -384,9 +607,9 @@
             document.getElementById('progressFill').style.width = '0%';
         }
 
-        // Allow Enter key to submit
-        document.getElementById('spotifyUrl').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') analyze();
+        // Allow Enter key to submit URL
+        document.getElementById('videoUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') analyzeUrl();
         });
     </script>
 </body>
