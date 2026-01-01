@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "podcast-insight"
+version = "0.1.0"
+description = "Extract transcripts and key insights from podcast episodes"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "spotdl>=4.2.0",
+    "openai-whisper>=20231117",
+    "anthropic>=0.39.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+podcast-insight = "podcast_insight.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/podcast_insight"]

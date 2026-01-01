@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcast Insight</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e5e5e5;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-top: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            background: #141414;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 1rem 1.25rem;
+            font-size: 1rem;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #666;
+        }
+
+        input[type="text"]::placeholder {
+            color: #555;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            display: none;
+            background: #141414;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #2a2a2a;
+            border-radius: 2px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #fff;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .result-card {
+            background: #141414;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-card h2 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .result-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .result-card h3:first-child {
+            margin-top: 0;
+        }
+
+        .result-card p {
+            color: #ccc;
+        }
+
+        .result-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .result-card li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: #ccc;
+        }
+
+        .result-card li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #555;
+        }
+
+        .result-card ol {
+            padding-left: 1.5rem;
+        }
+
+        .result-card ol li {
+            padding-left: 0.5rem;
+        }
+
+        .result-card ol li::before {
+            display: none;
+        }
+
+        blockquote {
+            border-left: 2px solid #333;
+            padding-left: 1rem;
+            margin: 0.75rem 0;
+            color: #999;
+            font-style: italic;
+        }
+
+        .error {
+            background: #1a0a0a;
+            border-color: #3a1a1a;
+            color: #ff6b6b;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #888;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            color: #fff;
+        }
+
+        @media (max-width: 600px) {
+            .input-group {
+                flex-direction: column;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Podcast Insight</h1>
+            <p class="subtitle">Extract key insights from any Spotify podcast episode</p>
+        </header>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input
+                    type="text"
+                    id="spotifyUrl"
+                    placeholder="https://open.spotify.com/episode/..."
+                    autocomplete="off"
+                >
+                <button id="analyzeBtn" onclick="analyze()">Analyze</button>
+            </div>
+        </div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">Starting...</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="result-card">
+                <h2 id="resultTitle">Episode Title</h2>
+
+                <h3>Summary</h3>
+                <p id="resultSummary"></p>
+
+                <h3>Key Topics</h3>
+                <ul id="resultTopics"></ul>
+
+                <h3>Main Insights</h3>
+                <ol id="resultInsights"></ol>
+
+                <h3>Notable Quotes</h3>
+                <div id="resultQuotes"></div>
+
+                <h3>Action Items</h3>
+                <ul id="resultActions"></ul>
+            </div>
+        </div>
+
+        <footer>
+            Built by <a href="https://github.com/emmanuel" target="_blank">Emmanuel</a> ·
+            <a href="https://github.com/emmanuel/podcast-insight" target="_blank">GitHub</a>
+        </footer>
+    </div>
+
+    <script>
+        let pollInterval = null;
+
+        async function analyze() {
+            const url = document.getElementById('spotifyUrl').value.trim();
+            if (!url) return;
+
+            const btn = document.getElementById('analyzeBtn');
+            btn.disabled = true;
+
+            // Reset and show progress
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = 'Starting...';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ spotify_url: url })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to start analysis');
+                }
+
+                const { job_id } = await response.json();
+                pollStatus(job_id);
+
+            } catch (error) {
+                showError(error.message);
+                btn.disabled = false;
+            }
+        }
+
+        function pollStatus(jobId) {
+            if (pollInterval) clearInterval(pollInterval);
+
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/status/${jobId}`);
+                    const data = await response.json();
+
+                    document.getElementById('progressFill').style.width = `${data.progress}%`;
+                    document.getElementById('progressText').textContent = data.message;
+
+                    if (data.status === 'complete') {
+                        clearInterval(pollInterval);
+                        showResults(data.result);
+                        document.getElementById('analyzeBtn').disabled = false;
+                    } else if (data.status === 'error') {
+                        clearInterval(pollInterval);
+                        showError(data.message);
+                        document.getElementById('analyzeBtn').disabled = false;
+                    }
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    showError('Connection lost');
+                    document.getElementById('analyzeBtn').disabled = false;
+                }
+            }, 1000);
+        }
+
+        function showResults(result) {
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+
+            document.getElementById('resultTitle').textContent = result.title;
+            document.getElementById('resultSummary').textContent = result.summary;
+
+            const topicsList = document.getElementById('resultTopics');
+            topicsList.innerHTML = result.key_topics.map(t => `<li>${t}</li>`).join('');
+
+            const insightsList = document.getElementById('resultInsights');
+            insightsList.innerHTML = result.main_insights.map(i => `<li>${i}</li>`).join('');
+
+            const quotesDiv = document.getElementById('resultQuotes');
+            quotesDiv.innerHTML = result.notable_quotes.map(q => `<blockquote>"${q}"</blockquote>`).join('');
+
+            const actionsList = document.getElementById('resultActions');
+            actionsList.innerHTML = result.action_items.map(a => `<li>${a}</li>`).join('');
+        }
+
+        function showError(message) {
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('progressSection').classList.add('error');
+            document.getElementById('progressText').textContent = `Error: ${message}`;
+            document.getElementById('progressFill').style.width = '0%';
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('spotifyUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') analyze();
+        });
+    </script>
+</body>
+</html>
