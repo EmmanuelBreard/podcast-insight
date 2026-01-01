@@ -306,6 +306,20 @@
             font-style: italic;
         }
 
+        .diagram {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.4;
+            white-space: pre;
+        }
+
         .error {
             background: #1a0a0a;
             border-color: #3a1a1a;
@@ -585,6 +599,7 @@
                         ${topic.key_points.map(point => `<li>${point}</li>`).join('')}
                     </ul>
                     ${topic.quote ? `<blockquote>"${topic.quote}"</blockquote>` : ''}
+                    ${topic.diagram ? `<pre class="diagram">${topic.diagram}</pre>` : ''}
                 `).join('');
             } else {
                 topicsDiv.innerHTML = '<p>No topics extracted.</p>';

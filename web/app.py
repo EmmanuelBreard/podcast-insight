@@ -157,6 +157,7 @@ Analyze the following podcast transcript and extract:
    - The topic name
    - The main information and key points about that topic
    - Any notable quotes related to that topic (if relevant)
+   - A process diagram (ONLY if the topic describes a sequential process with 3+ steps OR a decision flow with branching paths). Use ASCII art with arrows (→, ↓) and boxes. Keep it simple and readable.
 
 Format your response as JSON with these exact keys:
 {
@@ -166,7 +167,8 @@ Format your response as JSON with these exact keys:
         {
             "name": "Topic name",
             "key_points": ["Main point 1", "Main point 2", ...],
-            "quote": "Notable quote if relevant, or null"
+            "quote": "Notable quote if relevant, or null",
+            "diagram": "ASCII diagram if a process/flow is described, or null"
         }
     ]
 }
