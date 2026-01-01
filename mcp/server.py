@@ -5,7 +5,10 @@ import asyncio
 import json
 import os
 import re
+import shutil
+import sys
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,6 +25,10 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 if not ANTHROPIC_API_KEY:
     raise ValueError("ANTHROPIC_API_KEY environment variable required")
 
+# Output directory for markdown files
+INSIGHTS_OUTPUT_DIR = Path.home() / "Documents" / "ClaudeLife" / "Podcast-insights"
+INSIGHTS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 server = Server("podcast-insight")
 
 
@@ -35,12 +42,28 @@ def validate_url(url: str) -> bool:
     return any(re.match(p, url) for p in patterns)
 
 
+def find_yt_dlp() -> str:
+    """Find yt-dlp executable, checking venv first."""
+    # Check in same directory as this script's venv
+    venv_bin = Path(sys.executable).parent / "yt-dlp"
+    if venv_bin.exists():
+        return str(venv_bin)
+
+    # Fall back to PATH
+    yt_dlp_path = shutil.which("yt-dlp")
+    if yt_dlp_path:
+        return yt_dlp_path
+
+    raise FileNotFoundError("yt-dlp not found. Install with: pip install yt-dlp")
+
+
 async def get_youtube_transcript(url: str, output_dir: Path) -> str:
     """Extract transcript from YouTube using yt-dlp."""
     output_template = str(output_dir / "%(title)s")
+    yt_dlp = find_yt_dlp()
 
     result = await asyncio.create_subprocess_exec(
-        "yt-dlp",
+        yt_dlp,
         "--write-auto-sub",
         "--write-sub",
         "--sub-lang", "en",
@@ -102,7 +125,7 @@ Analyze the following podcast transcript and extract:
    - The topic name
    - The main information and key points about that topic
    - Any notable quotes related to that topic (if relevant)
-   - A process diagram (ONLY if the topic describes a sequential process with 3+ steps OR a decision flow with branching paths). Use ASCII art with arrows and boxes. Keep it simple and readable.
+   - A process diagram (ONLY if the topic describes a sequential process with 3+ steps OR a decision flow with branching paths). Use ASCII art with arrows (→, ↓) and boxes. Keep it simple and readable.
 
 Format your response as JSON with these exact keys:
 {
@@ -145,9 +168,11 @@ Here is the transcript:
     }
 
 
-def format_insights_as_markdown(insights: dict) -> str:
+def format_insights_as_markdown(insights: dict, url: str = None) -> str:
     """Format insights as readable markdown."""
     md = f"# {insights['title']}\n\n"
+    if url:
+        md += f"**Source:** {url}\n\n"
     md += f"## Summary\n\n{insights['summary']}\n\n"
 
     if insights.get("topics"):
@@ -162,6 +187,22 @@ def format_insights_as_markdown(insights: dict) -> str:
             md += "\n"
 
     return md
+
+
+def save_markdown_file(title: str, markdown: str) -> Path:
+    """Save markdown to file in the insights directory."""
+    # Create safe filename from title
+    safe_title = re.sub(r'[^\w\s-]', '', title).strip()
+    safe_title = re.sub(r'[-\s]+', '-', safe_title)[:80]  # Limit length
+
+    # Add timestamp for uniqueness
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{safe_title}.md"
+
+    filepath = INSIGHTS_OUTPUT_DIR / filename
+    filepath.write_text(markdown, encoding="utf-8")
+
+    return filepath
 
 
 @server.list_tools()
@@ -206,18 +247,24 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text="Error: Transcript is empty")]
 
             insights = analyze_transcript(transcript)
-            markdown = format_insights_as_markdown(insights)
+            markdown = format_insights_as_markdown(insights, url)
 
-            return [TextContent(type="text", text=markdown)]
+            # Save to file
+            filepath = save_markdown_file(insights.get("title", "Podcast"), markdown)
+
+            # Return markdown with file path info
+            result = f"**Saved to:** `{filepath}`\n\n---\n\n{markdown}"
+            return [TextContent(type="text", text=result)]
 
     except Exception as e:
         return [TextContent(type="text", text=f"Error: {str(e)}")]
 
 
-def main():
+async def main():
     """Run the MCP server."""
-    asyncio.run(stdio_server(server))
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
