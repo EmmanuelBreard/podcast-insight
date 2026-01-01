@@ -1,13 +1,13 @@
 # Podcast Insight
 
-Extract key insights from podcast episodes using AI. Paste a Spotify link, get structured notes.
+Extract key insights from podcasts and videos using AI. Get structured notes in seconds.
 
-**[Try the web app →](https://podcast-insight.up.railway.app)** *(update with your actual URL)*
+**[Try the web app →](https://podcast-insight-production.up.railway.app)**
 
 ## What it does
 
-1. Downloads audio from a Spotify podcast episode
-2. Transcribes it using OpenAI Whisper
+1. Takes audio from YouTube or uploaded files
+2. Transcribes using OpenAI Whisper
 3. Extracts insights using Claude:
    - Executive summary
    - Key topics
@@ -17,7 +17,12 @@ Extract key insights from podcast episodes using AI. Paste a Spotify link, get s
 
 ## Web App
 
-The simplest way to use Podcast Insight. Just paste a Spotify episode URL and get insights.
+Two ways to use it:
+
+- **YouTube URL** - Paste any YouTube video link (podcasts, interviews, talks)
+- **Upload audio** - Drag & drop MP3, WAV, or M4A files (max 25MB)
+
+> Note: Spotify links don't work due to DRM protection. Most podcasts are also on YouTube.
 
 ### Self-hosting
 
@@ -41,7 +46,7 @@ Open http://localhost:8000
 
 ## CLI Tool
 
-For local use with more control.
+For local use with more control. Uses local Whisper models (free, no API costs for transcription).
 
 ### Prerequisites
 
@@ -67,7 +72,7 @@ cp .env.example .env
 ### Usage
 
 ```bash
-podcast-insight "https://open.spotify.com/episode/..."
+podcast-insight "https://youtube.com/watch?v=..."
 ```
 
 Options:
@@ -83,13 +88,10 @@ Options:
 
 ```bash
 # Save as markdown
-podcast-insight "https://open.spotify.com/episode/..." --save insights.md
+podcast-insight "https://youtube.com/watch?v=..." --save insights.md
 
 # Use larger model for accuracy
-podcast-insight "https://open.spotify.com/episode/..." -m medium
-
-# Transcribe only
-podcast-insight transcribe "https://open.spotify.com/episode/..."
+podcast-insight "https://youtube.com/watch?v=..." -m medium
 
 # Analyze existing transcript
 podcast-insight analyze transcript.txt
