@@ -243,10 +243,30 @@
             margin-bottom: 1.5rem;
         }
 
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
         .result-card h2 {
             font-size: 1.75rem;
-            margin-bottom: 1rem;
+            margin: 0;
             color: #fff;
+        }
+
+        .download-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            background: transparent;
+            border: 1px solid #444;
+            color: #ccc;
+        }
+
+        .download-btn:hover:not(:disabled) {
+            background: #222;
+            border-color: #666;
         }
 
         .result-card h3 {
@@ -409,7 +429,10 @@
 
         <div class="results" id="results">
             <div class="result-card">
-                <h2 id="resultTitle">Episode Title</h2>
+                <div class="result-header">
+                    <h2 id="resultTitle">Episode Title</h2>
+                    <button class="download-btn" onclick="downloadMarkdown()">Download .md</button>
+                </div>
 
                 <h3>Summary</h3>
                 <p id="resultSummary"></p>
@@ -427,6 +450,7 @@
     <script>
         let pollInterval = null;
         let selectedFile = null;
+        let currentResult = null;
 
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -585,6 +609,7 @@
         }
 
         function showResults(result) {
+            currentResult = result;
             document.getElementById('progressSection').style.display = 'none';
             document.getElementById('results').style.display = 'block';
 
@@ -611,6 +636,39 @@
             document.getElementById('progressSection').classList.add('error');
             document.getElementById('progressText').textContent = `Error: ${message}`;
             document.getElementById('progressFill').style.width = '0%';
+        }
+
+        function downloadMarkdown() {
+            if (!currentResult) return;
+
+            let md = `# ${currentResult.title}\n\n`;
+            md += `## Summary\n\n${currentResult.summary}\n\n`;
+
+            if (currentResult.topics && currentResult.topics.length > 0) {
+                currentResult.topics.forEach(topic => {
+                    md += `## ${topic.name}\n\n`;
+                    topic.key_points.forEach(point => {
+                        md += `- ${point}\n`;
+                    });
+                    if (topic.quote) {
+                        md += `\n> "${topic.quote}"\n`;
+                    }
+                    if (topic.diagram) {
+                        md += `\n\`\`\`\n${topic.diagram}\n\`\`\`\n`;
+                    }
+                    md += '\n';
+                });
+            }
+
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentResult.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         // Allow Enter key to submit URL
